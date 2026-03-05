@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+</head>
+
+<body class="homey-widget">
+  <div id="root"></div>
+
+  <script type="text/javascript">
+    const e = React.createElement;
+
+    function WidgetApp() {
+      const [state, setState] = React.useState({
+        loading: false,
+        message: '',
+        settings: {},
+      });
+
+      React.useEffect(() => {
+        const settings = Homey.getSettings() || {};
+        setState((prev) => ({ ...prev, settings }));
+      }, []);
+
+      const onWake = async () => {
+        if (!state.settings.tv_ip || !state.settings.tv_mac) {
+          setState((prev) => ({
+            ...prev,
+            message: 'Please set TV IP and TV MAC in widget settings',
+          }));
+          return;
+        }
+
+        setState((prev) => ({ ...prev, loading: true, message: '' }));
+        try {
+          await Homey.api('POST', '/wake', {
+            tv_ip: state.settings.tv_ip,
+            tv_mac: state.settings.tv_mac,
+          });
+          setState((prev) => ({ ...prev, loading: false, message: 'Wake signal sent' }));
+        } catch (error) {
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            message: error && error.message ? error.message : 'Failed to send wake signal',
+          }));
+        }
+      };
+
+      return e(
+        'div',
+        {
+          style: {
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 'var(--homey-su-2)',
+            padding: 'var(--homey-su-2)',
+          },
+        },
+        e(
+          'button',
+          {
+            className: 'homey-button-primary-full',
+            type: 'button',
+            disabled: state.loading,
+            onClick: onWake,
+          },
+          state.loading ? 'Waking…' : 'Wake TV'
+        ),
+        e('div', { className: 'homey-text-small homey-text-align-center' }, state.message)
+      );
+    }
+
+    function onHomeyReady(HomeyInstance) {
+      window.Homey = HomeyInstance;
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(e(WidgetApp));
+      Homey.ready();
+    }
+  </script>
+</body>
+
+</html>
